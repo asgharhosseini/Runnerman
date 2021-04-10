@@ -18,7 +18,7 @@ class TrackingFragment : Fragment(R.layout.fragment_tracking) {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        mapView.onSaveInstanceState(savedInstanceState)
+        mapView.onCreate(savedInstanceState)
         mapView.getMapAsync {
             map= it
         }
@@ -28,16 +28,17 @@ class TrackingFragment : Fragment(R.layout.fragment_tracking) {
         super.onResume()
         mapView?.onResume()
     }
+    override fun onStart() {
+        super.onStart()
+        mapView?.onStart()
+    }
 
     override fun onStop() {
         super.onStop()
         mapView?.onStop()
     }
 
-    override fun onStart() {
-        super.onStart()
-        mapView?.onStart()
-    }
+
 
     override fun onPause() {
         super.onPause()
