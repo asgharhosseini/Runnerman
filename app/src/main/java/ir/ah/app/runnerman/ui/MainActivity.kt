@@ -1,8 +1,9 @@
-package ir.ah.app.runnerman
+package ir.ah.app.runnerman.ui
 
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import dagger.hilt.android.AndroidEntryPoint
+import ir.ah.app.runnerman.R
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
