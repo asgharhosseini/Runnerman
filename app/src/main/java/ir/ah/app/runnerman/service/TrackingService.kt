@@ -1,22 +1,20 @@
 package ir.ah.app.runnerman.service
 
-import android.annotation.SuppressLint
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.NotificationManager.IMPORTANCE_LOW
-import android.app.PendingIntent
-import android.app.PendingIntent.FLAG_UPDATE_CURRENT
-import android.content.Context
-import android.content.Intent
-import android.location.Location
-import android.os.Build
-import android.os.Looper
-import androidx.annotation.RequiresApi
-import androidx.core.app.NotificationCompat
-import androidx.lifecycle.LifecycleService
-import androidx.lifecycle.MutableLiveData
-import androidx.lifecycle.Observer
+import android.annotation.*
+import android.app.*
+import android.app.NotificationManager.*
+import android.app.PendingIntent.*
+import android.content.*
+import android.location.*
+import android.os.*
+import androidx.annotation.*
+import androidx.core.app.*
+import androidx.lifecycle.*
+import com.google.android.gms.location.*
+import com.google.android.gms.location.LocationRequest.*
+import com.google.android.gms.maps.model.*
 import ir.ah.app.runnerman.R
+import ir.ah.app.runnerman.other.*
 import ir.ah.app.runnerman.other.Constants.ACTION_PAUSE_SERVICE
 import ir.ah.app.runnerman.other.Constants.ACTION_SHOW_TRACKING_FRAGMENT
 import ir.ah.app.runnerman.other.Constants.ACTION_START_OR_RESUME_SERVICE
@@ -26,15 +24,10 @@ import ir.ah.app.runnerman.other.Constants.LOCATION_UPDATE_INTERVAL
 import ir.ah.app.runnerman.other.Constants.NOTIFICATION_CHANNEL_ID
 import ir.ah.app.runnerman.other.Constants.NOTIFICATION_CHANNEL_NAME
 import ir.ah.app.runnerman.other.Constants.NOTIFICATION_ID
-import ir.ah.app.runnerman.other.TrackingUtility
-import ir.ah.app.runnerman.ui.MainActivity
-import com.google.android.gms.location.FusedLocationProviderClient
-import com.google.android.gms.location.LocationCallback
-import com.google.android.gms.location.LocationRequest
-import com.google.android.gms.location.LocationRequest.PRIORITY_HIGH_ACCURACY
-import com.google.android.gms.location.LocationResult
-import com.google.android.gms.maps.model.LatLng
-import timber.log.Timber
+import ir.ah.app.runnerman.other.Constants.TIMER_UPDATE_INTERVAL
+import ir.ah.app.runnerman.ui.*
+import kotlinx.coroutines.*
+import timber.log.*
 
 typealias Polyline = MutableList<LatLng>
 typealias Polylines = MutableList<Polyline>
@@ -45,7 +38,10 @@ class TrackingService : LifecycleService() {
 
     lateinit var fusedLocationProviderClient: FusedLocationProviderClient
 
+    private val timeRunInSeconds = MutableLiveData<Long>()
+
     companion object {
+        val timeRunInMillis = MutableLiveData<Long>()
         val isTracking = MutableLiveData<Boolean>()
         val pathPoints = MutableLiveData<Polylines>()
     }
@@ -53,6 +49,8 @@ class TrackingService : LifecycleService() {
     private fun postInitialValues() {
         isTracking.postValue(false)
         pathPoints.postValue(mutableListOf())
+        timeRunInSeconds.postValue(0L)
+        timeRunInMillis.postValue(0L)
     }
 
     override fun onCreate() {
@@ -69,12 +67,12 @@ class TrackingService : LifecycleService() {
         intent?.let {
             when (it.action) {
                 ACTION_START_OR_RESUME_SERVICE -> {
-                    if(isFirstRun) {
+                    if (isFirstRun) {
                         startForegroundService()
                         isFirstRun = false
                     } else {
                         Timber.d("Resuming service...")
-                        startForegroundService()
+                        startTimer()
                     }
                 }
                 ACTION_PAUSE_SERVICE -> {
@@ -88,9 +86,37 @@ class TrackingService : LifecycleService() {
         }
         return super.onStartCommand(intent, flags, startId)
     }
+    private var isTimerEnabled = false
+    private var lapTime = 0L
+    private var timeRun = 0L
+    private var timeStarted = 0L
+    private var lastSecondTimestamp = 0L
+    private fun startTimer() {
+        addEmptyPolyline()
+        isTracking.postValue(true)
+
+        timeStarted = System.currentTimeMillis()
+        isTimerEnabled = true
+        CoroutineScope(Dispatchers.Main).launch {
+            while (isTracking.value!!) {
+                // time difference between now and timeStarted
+                lapTime = System.currentTimeMillis() - timeStarted
+                // post the new lapTime
+                timeRunInMillis.postValue(timeRun+ lapTime)
+                if (timeRunInMillis.value!! >= lastSecondTimestamp+1000L){
+                    timeRunInSeconds.postValue(timeRunInSeconds.value!! + 1)
+                    lastSecondTimestamp+=1000L
+                }
+                delay(TIMER_UPDATE_INTERVAL)
+            }
+            timeRun+=lapTime
+        }
+    }
+
 
     private fun pauseService() {
         isTracking.postValue(false)
+        isTimerEnabled=false
     }
 
     @SuppressLint("MissingPermission")
@@ -143,7 +169,7 @@ class TrackingService : LifecycleService() {
     } ?: pathPoints.postValue(mutableListOf(mutableListOf()))
 
     private fun startForegroundService() {
-        addEmptyPolyline()
+        startTimer()
         isTracking.postValue(true)
 
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE)
