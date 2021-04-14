@@ -27,6 +27,7 @@ import ir.ah.app.runnerman.ui.viewmodel.*
 import kotlinx.android.synthetic.main.fragment_tracking.*
 import java.lang.Math.*
 import java.util.*
+import javax.inject.*
 
 @AndroidEntryPoint
 class TrackingFragment : Fragment(R.layout.fragment_tracking) {
@@ -42,7 +43,8 @@ class TrackingFragment : Fragment(R.layout.fragment_tracking) {
 
     private var menu: Menu? = null
 
-    private var weight = 80f
+    @set:Inject
+    var weight = 80f
 
     override fun onCreateView(
             inflater: LayoutInflater,
